@@ -7,34 +7,34 @@
 
 const uint8_t parityTable[256] = {FIND_PARITY};
 
-void set_zspac_flags(cpu8080* state, uint8_t val){
-    state->flags.z = (val & 0xff) == 0;
-    state->flags.s = (val & 0x80) != 0; // 0b10000000 <- als 7de bit aanstaat dan wordt de het resultaat 64 (dus niet 0)
-    state->flags.p = parityTable[val];
-    state->flags.ac = val > 0x0f;
+void set_zspac_flags(cpu_flags* flags, uint8_t val){
+    flags->z = (val & 0xff) == 0;
+    flags->s = (val & 0x80) == 0x80; // 0b10000000 = 0x80 = 128 <- als bit 7 aanstaat dan mask dit bit en vergelijk met 128
+    flags->p = parityTable[val] == 0;
+    flags->ac = val > 0x0f;
 }
 
 cpu8080 reset8080(){
-    cpu8080 result;
+    cpu8080 cpu;
 
-    result.pc = 0;
-    result.sp = 0;
+    cpu.pc = 0;
+    cpu.sp = 0;
 
-    result.b = 0;
-    result.c = 0;
-    result.d = 0;
-    result.e = 0;
-    result.h = 0;
-    result.l = 0;
-    result.a = 0;
+    cpu.b = 0;
+    cpu.c = 0;
+    cpu.d = 0;
+    cpu.e = 0;
+    cpu.h = 0;
+    cpu.l = 0;
+    cpu.a = 0;
 
-    result.flags.z = 0;
-    result.flags.s = 0;
-    result.flags.p = 0;
-    result.flags.ac = 0;
-    result.flags.cy = 0;
+    cpu.flags.z = 0;
+    cpu.flags.s = 0;
+    cpu.flags.p = 0;
+    cpu.flags.ac = 0;
+    cpu.flags.cy = 0;
 
-    return result;
+    return cpu;
 }
 
 void emulate8080(cpu8080* state, uint8_t* memory){
@@ -44,42 +44,20 @@ void emulate8080(cpu8080* state, uint8_t* memory){
     switch(*code){
         case NOP: break;
 // load bytes into register pair
-        case LXI_B:{
-            state->b = code[2];
-            state->c = code[1];
-            state->pc += 2;
-        } break;
-        case LXI_D:{
-            state->d = code[2];
-            state->e = code[1];
-            state->pc += 2;
-        } break;
-        case LXI_H:{
-            state->h = code[2];
-            state->l = code[1];
-            state->pc += 2;
-        } break;
-        case LXI_SP:{
-            state->sp = (code[2] << 8) | code[1];
-            state->pc += 2;
-        } break;
+        case LXI_B:{ state->b = code[2]; state->c = code[1]; state->pc += 2; } break;
+        case LXI_D:{ state->d = code[2]; state->e = code[1]; state->pc += 2; } break;
+        case LXI_H:{ state->h = code[2]; state->l = code[1]; state->pc += 2; } break;
+        case LXI_SP:{ state->sp = (code[2] << 8) | code[1];  state->pc += 2; } break;
 // store A in memory address of register pair
-        case STAX_B: {
-            memory[(state->b << 8) | state->c] = state->a;
-        }break;
-        case STAX_D: {
-            memory[(state->d << 8) | state->e] = state->a;
-        }break;
+        case STAX_B: { memory[(state->b << 8) | state->c] = state->a; }break;
+        case STAX_D: { memory[(state->d << 8) | state->e] = state->a; }break;
         case SHLD: {
             uint16_t addr = (code[2] << 8) | code[1];
             memory[addr] = state->l;
             memory[addr+1] = state->h;
             state->pc += 2;
         }break;
-        case STA: {
-            memory[(code[2] << 8) | code[1]] = state->a;
-            state->pc += 2;
-        }break;
+        case STA: { memory[(code[2] << 8) | code[1]] = state->a; state->pc += 2; }break;
 // increment register pair
         case INX_B:{
             uint16_t res = ((state->b << 8) | state->c) + 1;
@@ -98,28 +76,28 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         } break;
         case INX_SP:{ state->sp++; } break;
 // increment registers
-        case INR_B:{ state->b++; set_zspac_flags(state, state->b);} break;
-        case INR_D:{ state->d++; set_zspac_flags(state, state->d);} break;
-        case INR_H:{ state->h++; set_zspac_flags(state, state->h);} break;
-        case INR_C:{ state->c++; set_zspac_flags(state, state->c);} break;
-        case INR_E:{ state->e++; set_zspac_flags(state, state->e);} break;
-        case INR_L:{ state->l++; set_zspac_flags(state, state->l);} break;
-        case INR_A:{ state->a++; set_zspac_flags(state, state->a);} break;
+        case INR_B:{ state->b++; set_zspac_flags(&state->flags, state->b);} break;
+        case INR_D:{ state->d++; set_zspac_flags(&state->flags, state->d);} break;
+        case INR_H:{ state->h++; set_zspac_flags(&state->flags, state->h);} break;
+        case INR_C:{ state->c++; set_zspac_flags(&state->flags, state->c);} break;
+        case INR_E:{ state->e++; set_zspac_flags(&state->flags, state->e);} break;
+        case INR_L:{ state->l++; set_zspac_flags(&state->flags, state->l);} break;
+        case INR_A:{ state->a++; set_zspac_flags(&state->flags, state->a);} break;
         case INR_M:{ 
             memory[(state->h << 8) | state->l]++;
-            set_zspac_flags(state, memory[(state->h << 8) | state->l]);
+            set_zspac_flags(&state->flags, memory[(state->h << 8) | state->l]);
         } break;
 // decrement registers
-        case DCR_B:{ state->b--; set_zspac_flags(state, state->b);} break;
-        case DCR_D:{ state->d--; set_zspac_flags(state, state->d);} break;
-        case DCR_H:{ state->h--; set_zspac_flags(state, state->h);} break;
-        case DCR_C:{ state->c--; set_zspac_flags(state, state->c);} break;
-        case DCR_E:{ state->e--; set_zspac_flags(state, state->e);} break;
-        case DCR_L:{ state->l--; set_zspac_flags(state, state->l);} break;
-        case DCR_A:{ state->a--; set_zspac_flags(state, state->a);} break;
+        case DCR_B:{ state->b--; set_zspac_flags(&state->flags, state->b);} break;
+        case DCR_D:{ state->d--; set_zspac_flags(&state->flags, state->d);} break;
+        case DCR_H:{ state->h--; set_zspac_flags(&state->flags, state->h);} break;
+        case DCR_C:{ state->c--; set_zspac_flags(&state->flags, state->c);} break;
+        case DCR_E:{ state->e--; set_zspac_flags(&state->flags, state->e);} break;
+        case DCR_L:{ state->l--; set_zspac_flags(&state->flags, state->l);} break;
+        case DCR_A:{ state->a--; set_zspac_flags(&state->flags, state->a);} break;
         case DCR_M:{ 
             memory[(state->h << 8) | state->l]--;
-            set_zspac_flags(state, memory[(state->h << 8) | state->l]);
+            set_zspac_flags(&state->flags, memory[(state->h << 8) | state->l]);
         } break;
 // move byte into register
         case MVI_B:{ state->b = code[1]; state->pc+=1; } break;
@@ -278,7 +256,6 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case MOV_A_L: state->a = state->l; break;
         case MOV_A_M: state->a = memory[(state->h << 8) | state->l]; break;
         case MOV_A_A: break;
-
 
 
         default: printf("Error: unhandled opcode\n"); break;
