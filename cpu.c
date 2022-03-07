@@ -289,6 +289,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case ADD_L: func_on_A('+', state, state->l); break;
         case ADD_M: func_on_A('+', state, memory[state->h << 8 | state->l]); break;
         case ADD_A: func_on_A('+', state, state->a); break;
+        case ADI:   func_on_A('+', state, code[1]); break;
 // subtract register from A
         case SUB_B: func_on_A('-', state, state->b); break;
         case SUB_C: func_on_A('-', state, state->c); break;
@@ -298,6 +299,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case SUB_L: func_on_A('-', state, state->l); break;
         case SUB_M: func_on_A('-', state, memory[state->h << 8 | state->l]); break;
         case SUB_A: func_on_A('-', state, state->a); break;
+        case SUI:   func_on_A('-', state, code[1]); break;
 // AND register with A
         case ANA_B: func_on_A('&', state, state->b); break;
         case ANA_C: func_on_A('&', state, state->c); break;
@@ -307,6 +309,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case ANA_L: func_on_A('&', state, state->l); break;
         case ANA_M: func_on_A('&', state, memory[state->h << 8 | state->l]); break;
         case ANA_A: func_on_A('&', state, state->a); break;
+        case ANI:   func_on_A('&', state, code[1]); break;
 // XOR register with A
         case XRA_B: func_on_A('^', state, state->b); break;
         case XRA_C: func_on_A('^', state, state->c); break;
@@ -316,6 +319,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case XRA_L: func_on_A('^', state, state->l); break;
         case XRA_M: func_on_A('^', state, memory[state->h << 8 | state->l]); break;
         case XRA_A: func_on_A('^', state, state->a); break;
+        case XRI:   func_on_A('^', state, code[1]); break;
 // OR register with A
         case ORA_B: func_on_A('|', state, state->b); break;
         case ORA_C: func_on_A('|', state, state->c); break;
@@ -324,7 +328,8 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case ORA_H: func_on_A('|', state, state->h); break;
         case ORA_L: func_on_A('|', state, state->l); break;
         case ORA_M: func_on_A('|', state, memory[state->h << 8 | state->l]); break;
-        case ORA_A: func_on_A('|', state, state->a); break;        
+        case ORA_A: func_on_A('|', state, state->a); break;
+        case ORI:   func_on_A('|', state, code[1]); break;    
 // add with carry register to A
         case ADC_B: func_on_A('#', state, state->b); break;
         case ADC_C: func_on_A('#', state, state->c); break;
@@ -334,6 +339,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case ADC_L: func_on_A('#', state, state->l); break;
         case ADC_M: func_on_A('#', state, memory[state->h << 8 | state->l]); break;
         case ADC_A: func_on_A('#', state, state->a); break;
+        case ACI:   func_on_A('#', state, code[1]); break;
 // subtract with carry register with A
         case SBB_B: func_on_A('@', state, state->b); break;
         case SBB_C: func_on_A('@', state, state->c); break;
@@ -343,6 +349,53 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case SBB_L: func_on_A('@', state, state->l); break;
         case SBB_M: func_on_A('@', state, memory[state->h << 8 | state->l]); break;
         case SBB_A: func_on_A('@', state, state->a); break;
+        case SBI:   func_on_A('@', state, code[1]); break;
+// compare register to A
+        case CMP_B: {
+            uint16_t res = state->a - state->b;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_C: {
+            uint16_t res = state->a - state->c;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_D: {
+            uint16_t res = state->a - state->d;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_E: {
+            uint16_t res = state->a - state->e;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_H: {
+            uint16_t res = state->a - state->h;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_L: {
+            uint16_t res = state->a - state->l;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_M: {
+            uint16_t res = state->a - memory[state->h << 8 | state->l];
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CMP_A: {
+            uint16_t res = state->a - state->a;
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
+        case CPI: {
+            uint16_t res = state->a - code[1];
+            state->flags.cy = res > 0xff;
+            set_zspac_flags(&state->flags, res & 0xff); 
+        }; break;
 
 
         default: printf("Error: unhandled opcode\n"); break;
