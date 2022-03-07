@@ -14,6 +14,30 @@ void set_zspac_flags(cpu_flags* flags, uint8_t val){
     flags->ac = val > 0x0f;
 }
 
+void func_on_A(char operation, cpu8080* state, uint8_t val){
+
+    uint16_t res;
+    if (operation == '+'){
+        uint16_t res = state->a + val;
+    } else if (operation == '-'){
+        uint16_t res = state->a - val;
+    } else if (operation == '&'){
+        uint16_t res = state->a & val;
+    } else if (operation == '|'){
+        uint16_t res = state->a | val;
+    } else if (operation == '^'){
+        uint16_t res = state->a ^ val;
+    } else if (operation == '#'){ // add with carry
+        uint16_t res = state->a + val + state->flags.cy;
+    } else if (operation == '@'){ // subtract with carry
+        uint16_t res = state->a - val - state->flags.cy;
+    }
+
+    state->flags.cy = res > 0xff;
+    state->a = res & 0xff;
+    set_zspac_flags(&state->flags, state->a);
+}
+
 cpu8080 reset8080(){
     cpu8080 cpu;
 
@@ -256,6 +280,69 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case MOV_A_L: state->a = state->l; break;
         case MOV_A_M: state->a = memory[(state->h << 8) | state->l]; break;
         case MOV_A_A: break;
+// add register to A
+        case ADD_B: func_on_A('+', state, state->b); break;
+        case ADD_C: func_on_A('+', state, state->c); break;
+        case ADD_D: func_on_A('+', state, state->d); break;
+        case ADD_E: func_on_A('+', state, state->e); break;
+        case ADD_H: func_on_A('+', state, state->h); break;
+        case ADD_L: func_on_A('+', state, state->l); break;
+        case ADD_M: func_on_A('+', state, memory[state->h << 8 | state->l]); break;
+        case ADD_A: func_on_A('+', state, state->a); break;
+// subtract register from A
+        case SUB_B: func_on_A('-', state, state->b); break;
+        case SUB_C: func_on_A('-', state, state->c); break;
+        case SUB_D: func_on_A('-', state, state->d); break;
+        case SUB_E: func_on_A('-', state, state->e); break;
+        case SUB_H: func_on_A('-', state, state->h); break;
+        case SUB_L: func_on_A('-', state, state->l); break;
+        case SUB_M: func_on_A('-', state, memory[state->h << 8 | state->l]); break;
+        case SUB_A: func_on_A('-', state, state->a); break;
+// AND register with A
+        case ANA_B: func_on_A('&', state, state->b); break;
+        case ANA_C: func_on_A('&', state, state->c); break;
+        case ANA_D: func_on_A('&', state, state->d); break;
+        case ANA_E: func_on_A('&', state, state->e); break;
+        case ANA_H: func_on_A('&', state, state->h); break;
+        case ANA_L: func_on_A('&', state, state->l); break;
+        case ANA_M: func_on_A('&', state, memory[state->h << 8 | state->l]); break;
+        case ANA_A: func_on_A('&', state, state->a); break;
+// XOR register with A
+        case XRA_B: func_on_A('^', state, state->b); break;
+        case XRA_C: func_on_A('^', state, state->c); break;
+        case XRA_D: func_on_A('^', state, state->d); break;
+        case XRA_E: func_on_A('^', state, state->e); break;
+        case XRA_H: func_on_A('^', state, state->h); break;
+        case XRA_L: func_on_A('^', state, state->l); break;
+        case XRA_M: func_on_A('^', state, memory[state->h << 8 | state->l]); break;
+        case XRA_A: func_on_A('^', state, state->a); break;
+// OR register with A
+        case ORA_B: func_on_A('|', state, state->b); break;
+        case ORA_C: func_on_A('|', state, state->c); break;
+        case ORA_D: func_on_A('|', state, state->d); break;
+        case ORA_E: func_on_A('|', state, state->e); break;
+        case ORA_H: func_on_A('|', state, state->h); break;
+        case ORA_L: func_on_A('|', state, state->l); break;
+        case ORA_M: func_on_A('|', state, memory[state->h << 8 | state->l]); break;
+        case ORA_A: func_on_A('|', state, state->a); break;        
+// add with carry register to A
+        case ADC_B: func_on_A('#', state, state->b); break;
+        case ADC_C: func_on_A('#', state, state->c); break;
+        case ADC_D: func_on_A('#', state, state->d); break;
+        case ADC_E: func_on_A('#', state, state->e); break;
+        case ADC_H: func_on_A('#', state, state->h); break;
+        case ADC_L: func_on_A('#', state, state->l); break;
+        case ADC_M: func_on_A('#', state, memory[state->h << 8 | state->l]); break;
+        case ADC_A: func_on_A('#', state, state->a); break;
+// subtract with carry register with A
+        case SBB_B: func_on_A('@', state, state->b); break;
+        case SBB_C: func_on_A('@', state, state->c); break;
+        case SBB_D: func_on_A('@', state, state->d); break;
+        case SBB_E: func_on_A('@', state, state->e); break;
+        case SBB_H: func_on_A('@', state, state->h); break;
+        case SBB_L: func_on_A('@', state, state->l); break;
+        case SBB_M: func_on_A('@', state, memory[state->h << 8 | state->l]); break;
+        case SBB_A: func_on_A('@', state, state->a); break;
 
 
         default: printf("Error: unhandled opcode\n"); break;
