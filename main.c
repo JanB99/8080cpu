@@ -39,14 +39,16 @@ int main(int argc, char **argv){
 
     uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(counter < 2500){
+    while(counter < 50000){
+        disassemble8080(memory, state.pc);
         emulate8080(&state, memory);
-        printf("%02x\n", state.b);
+        //printf("%02x\n", state.b);
+        //printf("mem sp: %02x %02x\n", memory[state.sp+1], memory[state.sp]);
         counter++;
     }
     printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
                 state.b, state.c, state.d, state.e, state.h, state.l, state.a);
-    printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d\n", 
+    printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d", 
                 state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
     printf(" \tpc: %04x   sp: %04x\n", state.pc, state.sp);
 

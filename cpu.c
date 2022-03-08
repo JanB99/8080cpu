@@ -40,7 +40,7 @@ void func_on_A(char operation, cpu8080* state, uint8_t val){
 
 void cond_jump(cpu8080* state, uint16_t addr, uint8_t condition){
     if (condition){
-        state->pc = addr;
+        state->pc = addr - 1; // end of switch statement pc gets incremented, this is to account for that
     } else {
         state->pc += 2;
     }
@@ -49,10 +49,10 @@ void cond_jump(cpu8080* state, uint16_t addr, uint8_t condition){
 void cond_call(cpu8080* state, uint8_t* memory, uint16_t addr, uint8_t condition){
     if (condition){
         uint16_t ret = state->pc + 2;
-        memory[state->sp - 1] = ret >> 8 | 0xff;  // mem sp-1 = pc HI
+        memory[state->sp - 1] = ret >> 8 & 0xff;  // mem sp-1 = pc HI
         memory[state->sp - 2] = ret & 0xff;       // mem sp-2 = pc LO
         state->sp-=2;
-        state->pc = addr;
+        state->pc = addr - 1;
     } else {
         state->pc += 2;
     }
@@ -60,6 +60,7 @@ void cond_call(cpu8080* state, uint8_t* memory, uint16_t addr, uint8_t condition
 
 void cond_ret(cpu8080* state, uint8_t* memory, uint8_t condition){
     if (condition){
+
         state->pc = (memory[state->sp+1] << 8) | memory[state->sp];
         state->sp += 2;
     }
@@ -91,7 +92,6 @@ cpu8080 reset8080(){
 void emulate8080(cpu8080* state, uint8_t* memory){
 
     uint8_t *code = &memory[state->pc];
-    //disassemble8080(memory, state->pc);
 
     switch(*code){
         case NOP: break;
@@ -220,7 +220,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
             state->l = memory[addr];
             state->h = memory[addr+1];
             state->pc += 2;
-        }
+        } break;
         case LDA:{ state->a = memory[(code[2] << 8) | code[1]]; } break;
 // decrement register pair
         case DCX_B:{
@@ -433,7 +433,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case OUT: state->pc++; break;
 // jumps
         case 0xcb:
-        case JMP: state->pc = code[2] << 8 | code[1]; break;
+        case JMP: cond_jump(state, code[2] << 8 | code[1], 1); break;
         case JZ: cond_jump(state, code[2] << 8 | code[1], state->flags.z == 1); break;
         case JNZ: cond_jump(state, code[2] << 8 | code[1], state->flags.z == 0); break;
         case JC: cond_jump(state, code[2] << 8 | code[1], state->flags.cy == 1); break;
@@ -442,7 +442,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case JPO: cond_jump(state, code[2] << 8 | code[1], state->flags.p == 0); break; 
         case JP: cond_jump(state, code[2] << 8 | code[1], state->flags.s == 0); break;
         case JM: cond_jump(state, code[2] << 8 | code[1], state->flags.s == 1); break; 
-        case PCHL: state->pc = state->h << 8 | state->l; break;
+        case PCHL: cond_jump(state, state->h << 8 | state->l, 1); break;
 // Call
         case 0xdd:
         case 0xed:
@@ -488,8 +488,7 @@ void emulate8080(cpu8080* state, uint8_t* memory){
                             state->flags.ac << 4;
             memory[state->sp-2] = psw;
             state->sp -= 2;
-            
-        }; break;
+        } break;
 
         case POP_B: state->b = memory[state->sp+1]; state->c = memory[state->sp]; state->sp += 2; break;
         case POP_D: state->d = memory[state->sp+1]; state->e = memory[state->sp]; state->sp += 2; break;

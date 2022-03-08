@@ -8,7 +8,7 @@ build:
 	$(CC) -o output main.c cpu.c $(CFLAGS)
 
 run:build
-	./output
+	output
 
 clean:
-	rm output
+	del output
