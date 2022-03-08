@@ -28,7 +28,7 @@ typedef struct {
 } cpu8080;
 
 cpu8080 reset8080();
-int disassemble8080(uint8_t *memory, int pc);
+int disassemble8080(uint8_t *memory, int pc, uint64_t counter);
 void emulate8080(cpu8080* state, uint8_t *memory);
 
 enum OPCODES{ 

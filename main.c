@@ -32,19 +32,11 @@ int main(int argc, char **argv){
     fread(memory, size, 1, file);
     fclose(file);
 
-    //disassemble first 10 bytes
-    // for (int i = 0; i < 10; i++){
-    //     state.pc += disassemble8080(memory, state.pc);
-    // }
-
     uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(counter < 50000){
-        disassemble8080(memory, state.pc);
+    while(1){
+        disassemble8080(memory, state.pc, counter++);
         emulate8080(&state, memory);
-        //printf("%02x\n", state.b);
-        //printf("mem sp: %02x %02x\n", memory[state.sp+1], memory[state.sp]);
-        counter++;
     }
     printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
                 state.b, state.c, state.d, state.e, state.h, state.l, state.a);

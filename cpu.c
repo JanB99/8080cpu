@@ -60,8 +60,8 @@ void cond_call(cpu8080* state, uint8_t* memory, uint16_t addr, uint8_t condition
 
 void cond_ret(cpu8080* state, uint8_t* memory, uint8_t condition){
     if (condition){
-
-        state->pc = (memory[state->sp+1] << 8) | memory[state->sp];
+        state->pc = ((memory[state->sp+1] << 8) | memory[state->sp]) - 1;
+        printf("RET: %04x\tSP mem: %04x - %04x\n", state->pc, state->sp+1, state->sp);
         state->sp += 2;
     }
 }
@@ -94,6 +94,13 @@ void emulate8080(cpu8080* state, uint8_t* memory){
     uint8_t *code = &memory[state->pc];
 
     switch(*code){
+        case 0x10:
+        case 0x20:
+        case 0x30:
+        case 0x08:
+        case 0x18:
+        case 0x28:
+        case 0x38:
         case NOP: break;
 // load bytes into register pair
         case LXI_B:{ state->b = code[2]; state->c = code[1]; state->pc += 2; } break;
@@ -510,13 +517,20 @@ void emulate8080(cpu8080* state, uint8_t* memory){
             memory[state->sp] = (tmp >> 8) & 0xff;
             memory[state->sp+1] = tmp & 0xff;
         } break;
+        case XCHG: {
+            uint16_t tmp = state->h << 8 | state->l;
+            state->l = state->e;
+            state->h = state->d;
+            state->d = (tmp >> 8) & 0xff;
+            state->e = tmp & 0xff;
+        } break;
 
-        default: printf("Error: unhandled opcode %02x\n", code[0]); break;
+        default: printf("Error: unhandled opcode: 0x%02x\n", code[0]); exit(0); break;
     }
     state->pc += 1;
 }
 
-int disassemble8080(uint8_t *memory, int pc){
+int disassemble8080(uint8_t *memory, int pc, uint64_t counter){
 
     unsigned char *code = &memory[pc];
     int opbytes = 1;
@@ -791,7 +805,8 @@ int disassemble8080(uint8_t *memory, int pc){
             printf("Error: unhandled opcode");
             break;
     }
-    printf("\n");
+    printf("\t %lld\n", counter);
+    
 
     return opbytes;
 }
