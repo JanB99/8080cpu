@@ -37,17 +37,30 @@ int main(int argc, char **argv){
     //     state.pc += disassemble8080(memory, state.pc);
     // }
 
-    uint8_t testmem[10] = {LXI_B, 0x00, 0xff, ADD_B, ADD_B};
-
+    uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(state.pc < 10){
-        emulate8080(&state, testmem);
-        printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
-                state.b, state.c, state.d, state.e, state.h, state.l, state.a);
-        printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d\n", 
-                state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
+    while(counter < 2500){
+        emulate8080(&state, memory);
+        printf("%02x\n", state.b);
+        counter++;
     }
-    printf("\n");
+    printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
+                state.b, state.c, state.d, state.e, state.h, state.l, state.a);
+    printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d\n", 
+                state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
+    printf(" \tpc: %04x   sp: %04x\n", state.pc, state.sp);
+
+    // uint8_t testmem[10] = {LXI_B, 0x00, 0xff, ADD_B, ADD_B};
+
+    // printf("\nfile size: %ld\n--------------------\n", size);
+    // while(state.pc < 10){
+    //     emulate8080(&state, testmem);
+    //     printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
+    //             state.b, state.c, state.d, state.e, state.h, state.l, state.a);
+    //     printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d\n", 
+    //             state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
+    // }
+    // printf("\n");
 
     //free(memory);
     return 0;
