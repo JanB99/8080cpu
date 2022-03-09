@@ -11,9 +11,18 @@
         (x & 0x02 ? '1' : '0'),\
         (x & 0x01 ? '1' : '0')\
 
+static inline void byte_dump(const uint8_t *memory, long int size){
+    for (size_t i = 0; i < size; i++){
+        printf("%02x  ", memory[i]);
+        if (i % 16 == 0) printf("\n");
+    }
+}
+
 int main(int argc, char **argv){
 
     FILE* file = fopen("resources/invaders", "r");
+    
+    //FILE* file = fopen("resources/cpudiag.bin", "r");
     
     if (file == NULL){
         printf("Error while opening the file\n");
@@ -28,33 +37,43 @@ int main(int argc, char **argv){
     uint8_t memory[0xffff] = {0};
 
     //memory = malloc(sizeof(char) * size);
-
+    //uint8_t *buffer = &memory[0x100];
+    //fread(buffer, size + 0x100, 1, file);
+    
     fread(memory, size, 1, file);
     fclose(file);
 
+    //byte_dump(memory, size);
+
+    // first ins is JMP to 0x100;
+    // memory[0] = 0xc3; // JMP
+    // memory[1] = 0x00; // lo byte
+    // memory[2] = 0x01; // hi byte
+
+    // memory[368] = 0x7;
+
+    // memory[0x59c] = 0xc3; //JMP    
+    // memory[0x59d] = 0xc2;    
+    // memory[0x59e] = 0x05;
+
+    //byte_dump(memory, size);
+
     uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(1){
-        disassemble8080(memory, state.pc, counter++);
+    while(counter < 60300){
+
         emulate8080(&state, memory);
+        if (counter > 40100) {
+            disassemble8080(memory, state.pc, counter);
+            printf("\t\tB: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
+                    state.b, state.c, state.d, state.e, state.h, state.l, state.a);
+            printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d", 
+                    state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
+            printf(" \tpc: %04x   sp: %04x\n", state.pc, state.sp);
+        }
+        
+        counter++;
     }
-    printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
-                state.b, state.c, state.d, state.e, state.h, state.l, state.a);
-    printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d", 
-                state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
-    printf(" \tpc: %04x   sp: %04x\n", state.pc, state.sp);
-
-    // uint8_t testmem[10] = {LXI_B, 0x00, 0xff, ADD_B, ADD_B};
-
-    // printf("\nfile size: %ld\n--------------------\n", size);
-    // while(state.pc < 10){
-    //     emulate8080(&state, testmem);
-    //     printf("B: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
-    //             state.b, state.c, state.d, state.e, state.h, state.l, state.a);
-    //     printf(" \tflags:  z%d  s%d  p%d  ac%d  cy%d\n", 
-    //             state.flags.z, state.flags.s, state.flags.p, state.flags.ac, state.flags.cy);
-    // }
-    // printf("\n");
 
     //free(memory);
     return 0;
