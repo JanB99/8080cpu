@@ -20,9 +20,9 @@ static inline void byte_dump(const uint8_t *memory, long int size){
 
 int main(int argc, char **argv){
 
-    FILE* file = fopen("resources/invaders", "r");
+    //FILE* file = fopen("resources/invaders", "r");
     
-    //FILE* file = fopen("resources/cpudiag.bin", "r");
+    FILE* file = fopen("resources/cpudiag.bin", "r");
     
     if (file == NULL){
         printf("Error while opening the file\n");
@@ -36,34 +36,31 @@ int main(int argc, char **argv){
     cpu8080 state = reset8080();
     uint8_t memory[0xffff] = {0};
 
-    //memory = malloc(sizeof(char) * size);
-    //uint8_t *buffer = &memory[0x100];
-    //fread(buffer, size + 0x100, 1, file);
+    uint8_t *buffer = &memory[0x100];
+    fread(buffer, size, 1, file);
     
-    fread(memory, size, 1, file);
+    //fread(memory, size, 1, file);
     fclose(file);
 
-    //byte_dump(memory, size);
+    //first ins is JMP to 0x100;
+    memory[0] = 0xc3; // JMP
+    memory[1] = 0x00; // lo byte
+    memory[2] = 0x01; // hi byte
 
-    // first ins is JMP to 0x100;
-    // memory[0] = 0xc3; // JMP
-    // memory[1] = 0x00; // lo byte
-    // memory[2] = 0x01; // hi byte
+    memory[368] = 0x7;
 
-    // memory[368] = 0x7;
-
-    // memory[0x59c] = 0xc3; //JMP    
-    // memory[0x59d] = 0xc2;    
-    // memory[0x59e] = 0x05;
+    memory[0x59c] = 0xc3; //JMP    
+    memory[0x59d] = 0xc2;    
+    memory[0x59e] = 0x05;
 
     //byte_dump(memory, size);
 
     uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(counter < 60300){
+    while(counter < 500){
 
         emulate8080(&state, memory);
-        if (counter > 40100) {
+        if (1) {
             disassemble8080(memory, state.pc, counter);
             printf("\t\tB: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
                     state.b, state.c, state.d, state.e, state.h, state.l, state.a);
@@ -74,7 +71,5 @@ int main(int argc, char **argv){
         
         counter++;
     }
-
-    //free(memory);
     return 0;
 }

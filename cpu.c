@@ -9,11 +9,17 @@
 
 const uint8_t parityTable[256] = {FIND_PARITY};
 
-void set_zspac_flags(cpu_flags* flags, uint8_t val){
+void set_zsp_flags(cpu_flags* flags, uint8_t val){
     flags->z = (val & 0xff) == 0;
     flags->s = (val & 0x80) == 0x80; // 0b10000000 = 0x80 = 128 <- als bit 7 aanstaat dan mask dit bit en vergelijk met 128
     flags->p = parityTable[val] == 0;
-    flags->ac = 0; // TODO: implement half-carry
+    //flags->ac = 0; // TODO: implement half-carry
+}
+
+uint8_t carry(uint8_t max_bits, uint8_t a, uint8_t b, uint8_t c){
+    uint16_t result = a + b + c;
+    uint16_t carry = result ^ a ^ b;
+    return (carry & (1<<max_bits)) >> max_bits;
 }
 
 void func_on_A(char operation, cpu8080* state, uint8_t val){
@@ -21,8 +27,12 @@ void func_on_A(char operation, cpu8080* state, uint8_t val){
     uint16_t res;
     if (operation == '+'){
         res = state->a + val;
+        state->flags.cy = carry(8, state->a, val, state->flags.cy);
+        state->flags.ac = carry(4, state->a, val, state->flags.cy);
     } else if (operation == '-'){
         res = state->a - val;
+        state->flags.cy = carry(8, state->a, val, state->flags.cy);
+        state->flags.ac = carry(4, state->a, val, state->flags.cy);
     } else if (operation == '&'){
         res = state->a & val;
     } else if (operation == '|'){
@@ -31,13 +41,16 @@ void func_on_A(char operation, cpu8080* state, uint8_t val){
         res = state->a ^ val;
     } else if (operation == '#'){ // add with carry
         res = state->a + val + state->flags.cy;
+        state->flags.cy = carry(8, state->a, val, state->flags.cy);
+        state->flags.ac = carry(4, state->a, val, state->flags.cy);
     } else if (operation == '@'){ // subtract with carry
         res = state->a - val - state->flags.cy;
+        state->flags.cy = carry(8, state->a, val, state->flags.cy);
+        state->flags.ac = carry(4, state->a, val, state->flags.cy);
     }
 
-    state->flags.cy = res > 0xff;
     state->a = res & 0xff;
-    set_zspac_flags(&state->flags, state->a);
+    set_zsp_flags(&state->flags, state->a);
 }
 
 void cond_jump(cpu8080* state, uint16_t addr, uint8_t condition){
@@ -141,28 +154,30 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         } break;
         case INX_SP:{ state->sp++; } break;
 // increment registers
-        case INR_B:{ state->b++; set_zspac_flags(&state->flags, state->b);} break;
-        case INR_D:{ state->d++; set_zspac_flags(&state->flags, state->d);} break;
-        case INR_H:{ state->h++; set_zspac_flags(&state->flags, state->h);} break;
-        case INR_C:{ state->c++; set_zspac_flags(&state->flags, state->c);} break;
-        case INR_E:{ state->e++; set_zspac_flags(&state->flags, state->e);} break;
-        case INR_L:{ state->l++; set_zspac_flags(&state->flags, state->l);} break;
-        case INR_A:{ state->a++; set_zspac_flags(&state->flags, state->a);} break;
-        case INR_M:{ 
+        case INR_B:{ state->flags.ac = carry(4, state->b, 1, state->flags.cy); state->b++; set_zsp_flags(&state->flags, state->b); } break;
+        case INR_D:{ state->flags.ac = carry(4, state->d, 1, state->flags.cy); state->d++; set_zsp_flags(&state->flags, state->d); } break;
+        case INR_H:{ state->flags.ac = carry(4, state->h, 1, state->flags.cy); state->h++; set_zsp_flags(&state->flags, state->h); } break;
+        case INR_C:{ state->flags.ac = carry(4, state->c, 1, state->flags.cy); state->c++; set_zsp_flags(&state->flags, state->c); } break;
+        case INR_E:{ state->flags.ac = carry(4, state->e, 1, state->flags.cy); state->e++; set_zsp_flags(&state->flags, state->e); } break;
+        case INR_L:{ state->flags.ac = carry(4, state->l, 1, state->flags.cy); state->l++; set_zsp_flags(&state->flags, state->l); } break;
+        case INR_A:{ state->flags.ac = carry(4, state->a, 1, state->flags.cy); state->a++; set_zsp_flags(&state->flags, state->a); } break;
+        case INR_M:{
+            state->flags.ac = carry(4, memory[(state->h << 8) | state->l], 1, state->flags.cy);
             memory[(state->h << 8) | state->l]++;
-            set_zspac_flags(&state->flags, memory[(state->h << 8) | state->l]);
+            set_zsp_flags(&state->flags, memory[(state->h << 8) | state->l]);
         } break;
 // decrement registers
-        case DCR_B:{ state->b--; set_zspac_flags(&state->flags, state->b);} break;
-        case DCR_D:{ state->d--; set_zspac_flags(&state->flags, state->d);} break;
-        case DCR_H:{ state->h--; set_zspac_flags(&state->flags, state->h);} break;
-        case DCR_C:{ state->c--; set_zspac_flags(&state->flags, state->c);} break;
-        case DCR_E:{ state->e--; set_zspac_flags(&state->flags, state->e);} break;
-        case DCR_L:{ state->l--; set_zspac_flags(&state->flags, state->l);} break;
-        case DCR_A:{ state->a--; set_zspac_flags(&state->flags, state->a);} break;
-        case DCR_M:{ 
+        case DCR_B:{ state->flags.ac = carry(4, state->b, 1, state->flags.cy); state->b--; set_zsp_flags(&state->flags, state->b);} break;
+        case DCR_D:{ state->flags.ac = carry(4, state->d, 1, state->flags.cy); state->d--; set_zsp_flags(&state->flags, state->d);} break;
+        case DCR_H:{ state->flags.ac = carry(4, state->h, 1, state->flags.cy); state->h--; set_zsp_flags(&state->flags, state->h);} break;
+        case DCR_C:{ state->flags.ac = carry(4, state->c, 1, state->flags.cy); state->c--; set_zsp_flags(&state->flags, state->c);} break;
+        case DCR_E:{ state->flags.ac = carry(4, state->e, 1, state->flags.cy); state->e--; set_zsp_flags(&state->flags, state->e);} break;
+        case DCR_L:{ state->flags.ac = carry(4, state->l, 1, state->flags.cy); state->l--; set_zsp_flags(&state->flags, state->l);} break;
+        case DCR_A:{ state->flags.ac = carry(4, state->a, 1, state->flags.cy); state->a--; set_zsp_flags(&state->flags, state->a);} break;
+        case DCR_M:{
+            state->flags.ac = carry(4, memory[(state->h << 8) | state->l], 1, state->flags.cy);
             memory[(state->h << 8) | state->l]--;
-            set_zspac_flags(&state->flags, memory[(state->h << 8) | state->l]);
+            set_zsp_flags(&state->flags, memory[(state->h << 8) | state->l]);
         } break;
 // move byte into register
         case MVI_B:{ state->b = code[1]; state->pc+=1; } break;
@@ -395,47 +410,56 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         case CMP_B: {
             uint16_t res = state->a - state->b;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->b, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff);
         }; break;
         case CMP_C: {
             uint16_t res = state->a - state->c;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->c, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_D: {
             uint16_t res = state->a - state->d;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->d, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_E: {
             uint16_t res = state->a - state->e;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->e, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_H: {
             uint16_t res = state->a - state->h;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->h, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_L: {
             uint16_t res = state->a - state->l;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->l, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff);
         }; break;
         case CMP_M: {
             uint16_t res = state->a - memory[state->h << 8 | state->l];
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, memory[state->h << 8 | state->l], state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_A: {
             uint16_t res = state->a - state->a;
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff); 
+            state->flags.ac = carry(4, state->a, state->a, state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CPI: {
             uint16_t res = state->a - code[1];
             state->flags.cy = res > 0xff;
-            set_zspac_flags(&state->flags, res & 0xff);
+            state->flags.ac = carry(4, state->a, code[1], state->flags.cy);
+            set_zsp_flags(&state->flags, res & 0xff);
             state->pc++;
         }; break;
 // miscelaneous 
@@ -550,7 +574,6 @@ void emulate8080(cpu8080* state, uint8_t* memory){
 
         default: printf("Error: unhandled opcode: 0x%02x\n", code[0]); exit(0); break;
     }
-    
 }
 
 void disassemble8080(uint8_t *memory, int pc, uint64_t counter){
