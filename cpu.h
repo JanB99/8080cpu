@@ -9,7 +9,7 @@ typedef struct {
     uint8_t p:1;   // set if num bits is even
     uint8_t cy:1;  // set if carry bit
     uint8_t ac:1;  // set if carry bit in 4 bit sequence
-    uint8_t pad:3; // extra padding to make 1 byte
+    uint8_t pad:3; // extra padding to make 1 byte 
 } cpu_flags;
 
 typedef struct {
@@ -30,7 +30,7 @@ typedef struct {
 } cpu8080;
 
 cpu8080 reset8080();
-void disassemble8080(uint8_t *memory, int pc, uint64_t cycles);
+int disassemble8080(uint8_t *memory, int pc, uint64_t cycles);
 void emulate8080(cpu8080* state, uint8_t *memory);
 
 static const uint8_t OPCODES_CYCLES[256] = {

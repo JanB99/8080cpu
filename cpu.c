@@ -26,13 +26,15 @@ void func_on_A(char operation, cpu8080* state, uint8_t val){
 
     uint16_t res;
     if (operation == '+'){
-        res = state->a + val;
+        res = state->a + val + state->flags.cy;
         state->flags.cy = carry(8, state->a, val, state->flags.cy);
         state->flags.ac = carry(4, state->a, val, state->flags.cy);
     } else if (operation == '-'){
-        res = state->a - val;
-        state->flags.cy = carry(8, state->a, val, state->flags.cy);
-        state->flags.ac = carry(4, state->a, val, state->flags.cy);
+        res = (uint16_t)state->a + (uint16_t)~val + 1;
+       // printf("RESULT SUI: %x + %x = %x\n", state->a, ~val, res);
+        state->flags.cy = carry(8, state->a, ~val, !state->flags.cy);
+        state->flags.ac = carry(4, state->a, ~val, !state->flags.cy);
+        state->flags.cy = !state->flags.cy;
     } else if (operation == '&'){
         res = state->a & val;
     } else if (operation == '|'){
@@ -56,6 +58,7 @@ void func_on_A(char operation, cpu8080* state, uint8_t val){
 void cond_jump(cpu8080* state, uint16_t addr, uint8_t condition){
     if (condition){
         state->pc = addr;
+        //printf("PC: %x\n", state->pc);
     } else {
         state->pc += 2;
     }
@@ -439,26 +442,27 @@ void emulate8080(cpu8080* state, uint8_t* memory){
         }; break;
         case CMP_L: {
             uint16_t res = state->a - state->l;
-            state->flags.cy = res > 0xff;
+            state->flags.cy = res >> 8;
             state->flags.ac = carry(4, state->a, state->l, state->flags.cy);
             set_zsp_flags(&state->flags, res & 0xff);
         }; break;
         case CMP_M: {
             uint16_t res = state->a - memory[state->h << 8 | state->l];
-            state->flags.cy = res > 0xff;
+            state->flags.cy = res >> 8;
             state->flags.ac = carry(4, state->a, memory[state->h << 8 | state->l], state->flags.cy);
             set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CMP_A: {
             uint16_t res = state->a - state->a;
-            state->flags.cy = res > 0xff;
+            state->flags.cy = res >> 8;
             state->flags.ac = carry(4, state->a, state->a, state->flags.cy);
             set_zsp_flags(&state->flags, res & 0xff); 
         }; break;
         case CPI: {
             uint16_t res = state->a - code[1];
-            state->flags.cy = res > 0xff;
+            state->flags.cy = res >> 8;
             state->flags.ac = carry(4, state->a, code[1], state->flags.cy);
+            //printf("RESULT = %x", res);
             set_zsp_flags(&state->flags, res & 0xff);
             state->pc++;
         }; break;
@@ -576,68 +580,77 @@ void emulate8080(cpu8080* state, uint8_t* memory){
     }
 }
 
-void disassemble8080(uint8_t *memory, int pc, uint64_t counter){
+int disassemble8080(uint8_t *memory, int pc, uint64_t counter){
 
-    unsigned char *code = &memory[pc];
-    //int  
-    printf("0x%04x  ", pc);
+    uint8_t *code = &memory[pc];
+    printf("0x%04x   ", pc);
+    printf("OPCODE: %02x %02x %02x    ", code[0], code[1], code[2]);
+    int opcount = 1;
+
     switch(*code){
+        case 0x10:
+        case 0x20:
+        case 0x30:
+        case 0x08:
+        case 0x18:
+        case 0x28:
+        case 0x38:
         case NOP: printf("NOP    "); break;
-        case LXI_B: printf("LXI    B, #%02x%02x", code[2], code[1]); break;
+        case LXI_B: printf("LXI    B, #%02x%02x", code[2], code[1]); opcount = 3; break;
         case STAX_B: printf("STAX   B"); break;
         case INX_B: printf("INX    B"); break;
         case INR_B: printf("INR    B"); break;
         case DCR_B: printf("DCR    B"); break;
-        case MVI_B: printf("MVI    B, #%02x", code[1]); break;
+        case MVI_B: printf("MVI    B, #%02x", code[1]); opcount = 2; break;
         case RLC: printf("RLC    "); break;
         case DAD_B: printf("DAD    B"); break;
         case LDAX_B: printf("LDAX   B"); break;
         case DCX_B: printf("DCX    B"); break;
         case INR_C: printf("INR    C"); break;
         case DCR_C: printf("DCR    C"); break;
-        case MVI_C: printf("MVI    C, #%02x", code[1]);   break;
+        case MVI_C: printf("MVI    C, #%02x", code[1]); opcount = 2; break;
         case RRC: printf("RRC    "); break;
-        case LXI_D: printf("LXI    D, #%02x%02x", code[2], code[1]);   break;
+        case LXI_D: printf("LXI    D, #%02x%02x", code[2], code[1]); opcount = 3; break;
         case STAX_D: printf("STAX   D"); break;
         case INX_D: printf("INX    D"); break;
         case INR_D: printf("INR    D"); break;
         case DCR_D: printf("DCR    D"); break;
-        case MVI_D: printf("MVI    D, #%02x", code[1]);   break;
+        case MVI_D: printf("MVI    D, #%02x", code[1]); opcount = 2; break;
         case RAL: printf("RAL    "); break;
         case DAD_D: printf("DAD    D"); break;
         case LDAX_D: printf("LDAX   D"); break;
         case DCX_D: printf("DCX    D"); break;
         case INR_E: printf("INR    E"); break;
         case DCR_E: printf("DCR    E"); break;
-        case MVI_E: printf("MVI    E, #%02x", code[1]);   break;
+        case MVI_E: printf("MVI    E, #%02x", code[1]); opcount = 2; break;
         case RAR: printf("RAR    "); break;
-        case LXI_H: printf("LXI    H, #%02x%02x", code[2], code[1]);   break;
-        case SHLD: printf("SHLD   #%02x%02x", code[2], code[1]);   break;
+        case LXI_H: printf("LXI    H, #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case SHLD: printf("SHLD   #%02x%02x", code[2], code[1]); opcount = 3; break;
         case INX_H: printf("INX    H"); break;
         case INR_H: printf("INR    H"); break;
         case DCR_H: printf("DCR    H"); break;
-        case MVI_H: printf("MVI    H, #%02x", code[1]);   break;
+        case MVI_H: printf("MVI    H, #%02x", code[1]); opcount = 2; break;
         case DAA: printf("DAA    "); break;
         case DAD_H: printf("DAD    H"); break;
-        case LHLD: printf("LHLD   #%02x%02x", code[2], code[1]);   break;
+        case LHLD: printf("LHLD   #%02x%02x", code[2], code[1]); opcount = 3; break;
         case DCX_H: printf("DCX    H"); break;
         case INR_L: printf("INR    L"); break;
         case DCR_L: printf("DCR    L"); break;
-        case MVI_L: printf("MVI    L, #%02x", code[1]);   break;
+        case MVI_L: printf("MVI    L, #%02x", code[1]); opcount = 2; break;
         case CMA: printf("CMA    "); break;
-        case LXI_SP: printf("LXI    SP, #%02x%02x", code[2], code[1]);   break;
-        case STA: printf("STA    #%02x%02x", code[2], code[1]);   break;
+        case LXI_SP: printf("LXI    SP, #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case STA: printf("STA    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case INX_SP: printf("INX    SP"); break;
         case INR_M: printf("INR    M"); break;
         case DCR_M: printf("DCR    M"); break;
-        case MVI_M: printf("MVI    M, #%02x", code[1]);   break;
+        case MVI_M: printf("MVI    M, #%02x", code[1]); opcount = 2; break;
         case STC: printf("STC    "); break;
         case DAD_SP: printf("DAD    SP"); break;
-        case LDA: printf("LDA    #%02x%02x", code[2], code[1]);   break;
+        case LDA: printf("LDA    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case DCX_SP: printf("DCX    SP"); break;
         case INR_A: printf("INR    A"); break;
         case DCR_A: printf("DCR    A"); break;
-        case MVI_A: printf("MVI    A, #%02x", code[1]);   break;
+        case MVI_A: printf("MVI    A, #%02x", code[1]); opcount = 2; break;
         case CMC: printf("CMC    "); break;
         case MOV_B_B: printf("MOV    B, B"); break;
         case MOV_B_C: printf("MOV    B, C"); break;
@@ -785,74 +798,79 @@ void disassemble8080(uint8_t *memory, int pc, uint64_t counter){
 
         case RNZ: printf("RNZ    "); break;
         case POP_B: printf("POP    B"); break;
-        case JNZ: printf("JNZ    #%02x%02x", code[2], code[1]);   break;
-        case JMP: printf("JMP    #%02x%02x", code[2], code[1]);   break;
-        case CNZ: printf("CNZ    #%02x%02x", code[2], code[1]);   break;
+        case JNZ: printf("JNZ    #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case 0xcb:
+        case JMP: printf("JMP    #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case CNZ: printf("CNZ    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case PUSH_B: printf("PUSH   B"); break;
-        case ADI: printf("ADI    #%02x", code[1]);   break;
+        case ADI: printf("ADI    #%02x", code[1]); opcount = 2; break;
         case RST_0: printf("RST    0"); break;
         case RZ: printf("RZ    "); break;
+        case 0xd9:
         case RET: printf("RET    "); break;
-        case JZ: printf("JZ     #%02x%02x", code[2], code[1]);   break;
+        case JZ: printf("JZ     #%02x%02x", code[2], code[1]); opcount = 3; break;
         // gap
-        case CZ: printf("CZ     #%02x%02x", code[2], code[1]);   break;
-        case CALL: printf("CALL   #%02x%02x", code[2], code[1]);   break;
-        case ACI: printf("ACI    #%02x", code[1]);   break;
+        case CZ: printf("CZ     #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case 0xdd:
+        case 0xed:
+        case 0xfd:
+        case CALL: printf("CALL   #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case ACI: printf("ACI    #%02x", code[1]); opcount = 2; break;
         case RST_1: printf("RST    1"); break;
         case RNC: printf("RNC    "); break;
         case POP_D: printf("POP    D"); break;
-        case JNC: printf("JNC    #%02x%02x", code[2], code[1]);   break;
-        case OUT: printf("OUT    #%02x", code[1]);   break;
-        case CNC: printf("CNC    #%02x%02x", code[2], code[1]);   break;
+        case JNC: printf("JNC    #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case OUT: printf("OUT    #%02x", code[1]); opcount = 2; break;
+        case CNC: printf("CNC    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case PUSH_D: printf("PUSH   D"); break;
-        case SUI: printf("SUI    #%02x", code[1]);   break;
+        case SUI: printf("SUI    #%02x", code[1]); opcount = 2; break;
         case RST_2: printf("RST    2"); break;
         case RC: printf("RC    "); break;
         //gap
-        case JC: printf("JC     #%02x%02x", code[2], code[1]);   break;
-        case IN: printf("IN     #%02x", code[1]);   break;
-        case CC: printf("CC     #%02x%02x", code[2], code[1]);   break;
+        case JC: printf("JC     #%02x%02x", code[2], code[1]); opcount = 3; break;
+        case IN: printf("IN     #%02x", code[1]); opcount = 2; break;
+        case CC: printf("CC     #%02x%02x", code[2], code[1]); opcount = 3; break;
         //gap
-        case SBI: printf("SBI    #%02x", code[1]);   break;
+        case SBI: printf("SBI    #%02x", code[1]); opcount = 2; break;
         case RST_3: printf("RST    3"); break;
         case RPO: printf("RPO    "); break;
         case POP_H: printf("POP    H"); break;
-        case JPO: printf("JPO    #%02x%02x", code[2], code[1]);   break;
+        case JPO: printf("JPO    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case XTHL: printf("XTHL    "); break;
-        case CPO: printf("CPO    #%02x%02x", code[2], code[1]);   break;
+        case CPO: printf("CPO    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case PUSH_H: printf("PUSH   H"); break;
-        case ANI: printf("ANI    #%02x", code[1]);   break;
+        case ANI: printf("ANI    #%02x", code[1]); opcount = 2; break;
         case RST_4: printf("RST    4"); break;
         case RPE: printf("RPE    "); break;
         case PCHL: printf("PCHL    "); break;
-        case JPE: printf("JPE    #%02x%02x", code[2], code[1]);   break;
+        case JPE: printf("JPE    #%02x%02x", code[2], code[1]); opcount = 3; break;
         case XCHG: printf("XCHG    "); break;
-        case CPE: printf("CPE    #%02x%02x", code[2], code[1]);   break;
+        case CPE: printf("CPE    #%02x%02x", code[2], code[1]); opcount = 3; break;
         //gap
-        case XRI: printf("XRI    #%02x", code[1]);   break;
+        case XRI: printf("XRI    #%02x", code[1]); opcount = 2; break;
         case RST_5: printf("RST    5"); break;
         case RP: printf("RP    "); break;
         case POP_PSW: printf("POP    PSW"); break;
-        case JP: printf("JP     #%02x%02x", code[2], code[1]);   break;
+        case JP: printf("JP     #%02x%02x", code[2], code[1]); opcount = 3; break;
         case DI: printf("DI    "); break;
-        case CP: printf("CP     #%02x%02x", code[2], code[1]);   break;
+        case CP: printf("CP     #%02x%02x", code[2], code[1]); opcount = 3; break;
         case PUSH_PSW: printf("PUSH   PSW"); break;
-        case ORI: printf("ORI    #%02x", code[1]);   break;
+        case ORI: printf("ORI    #%02x", code[1]); opcount = 2; break;
         case RST_6: printf("RST    6"); break;
         case RM: printf("RM    "); break;
         case SPHL: printf("SPHL    "); break;
-        case JM: printf("JM     #%02x%02x", code[2], code[1]);   break;
+        case JM: printf("JM     #%02x%02x", code[2], code[1]); opcount = 3; break;
         case EI: printf("EI    "); break;
-        case CM: printf("CM     #%02x%02x", code[2], code[1]);   break;
+        case CM: printf("CM     #%02x%02x", code[2], code[1]); opcount = 3; break;
         //gap
-        case CPI: printf("CPI    #%02x", code[1]);   break;
+        case CPI: printf("CPI    #%02x", code[1]); opcount = 2; break;
         case RST_7: printf("RST    7"); break;
         default:
             printf("Error: unhandled opcode");
             break;
     }
-    printf("\t %lld", counter);
+    printf("       \t%lld", counter);
     
 
-    //return opbytes;
+    return opcount;
 }

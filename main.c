@@ -22,10 +22,11 @@ int main(int argc, char **argv){
 
     //FILE* file = fopen("resources/invaders", "r");
     
-    FILE* file = fopen("resources/cpudiag.bin", "r");
+    FILE* file = fopen("resources/test.com", "r");
     
     if (file == NULL){
         printf("Error while opening the file\n");
+        fclose(file);
         exit(1);
     }
 
@@ -53,14 +54,15 @@ int main(int argc, char **argv){
     memory[0x59d] = 0xc2;    
     memory[0x59e] = 0x05;
 
-    //byte_dump(memory, size);
+    byte_dump(memory, size);
+
 
     uint64_t counter = 0;
     printf("\nfile size: %ld\n--------------------\n", size);
-    while(counter < 500){
-
+    while(counter < 400){
         emulate8080(&state, memory);
         if (1) {
+            //counter += disassemble8080(memory, counter, counter);
             disassemble8080(memory, state.pc, counter);
             printf("\t\tB: %02x  C: %02x  D: %02x  E: %02x  H: %02x  L: %02x  A: %02x", 
                     state.b, state.c, state.d, state.e, state.h, state.l, state.a);
